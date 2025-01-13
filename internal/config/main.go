@@ -13,19 +13,30 @@ type Config struct {
 	CurrentUserName string `json:"current_user_name"`
 }
 
-var CONFIG_FILE_NAME string = ".gatorconfig.json"
+const configFileName = ".gatorconfig.json"
 
-func Read() (*Config, error) {
+func getConfigFilePath() (string, error) {
 	cwd, err := os.UserHomeDir()
 	if err != nil {
-		return nil, fmt.Errorf("failed to find user home directory: %v", err)
+		return "", fmt.Errorf("failed to find user home directory: %v", err)
 	}
 
-	targetFile := path.Join(cwd, CONFIG_FILE_NAME)
+	targetFile := path.Join(cwd, configFileName)
+
+	return targetFile, nil
+}
+
+func Read() (*Config, error) {
+	targetFile, err := getConfigFilePath()
+	if err != nil {
+		return nil, err
+	}
+
 	fd, err := os.Open(targetFile)
 	if err != nil {
 		return nil, fmt.Errorf("failed to open %s: %v", targetFile, err)
 	}
+	defer fd.Close()
 
 	data, err := io.ReadAll(fd)
 	if err != nil {
@@ -39,4 +50,34 @@ func Read() (*Config, error) {
 	}
 
 	return &config, nil
+}
+
+func (cfg *Config) SetUser(user string) error {
+	cfg.CurrentUserName = user
+	return write(cfg)
+}
+
+func write(cfg *Config) error {
+	targetFile, err := getConfigFilePath()
+	if err != nil {
+		return err
+	}
+
+	fd, err := os.OpenFile(targetFile, os.O_WRONLY|os.O_TRUNC, 0644)
+	if err != nil {
+		return fmt.Errorf("failed to open %s: %v", targetFile, err)
+	}
+	defer fd.Close()
+
+	jsonData, err := json.Marshal(cfg)
+	if err != nil {
+		return fmt.Errorf("failed to parse configuration into json: %v", err)
+	}
+
+	_, err = fd.Write(jsonData)
+	if err != nil {
+		return fmt.Errorf("[config.write] %v", err)
+	}
+
+	return nil
 }
