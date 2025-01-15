@@ -52,3 +52,40 @@ func handlerRegister(s *state, cmd command) error {
 
 	return nil
 }
+
+func handlerLogin(s *state, cmd command) error {
+	if len(cmd.Args) < 1 {
+		return fmt.Errorf("Usage: gator login <name>")
+	}
+
+	name := cmd.Args[0]
+	user, err := s.db.GetUser(context.Background(), name)
+	if err != nil {
+		return fmt.Errorf("User is not registered yet")
+	}
+
+	err = s.cfg.SetUser(user.Name)
+	if err != nil {
+		return fmt.Errorf("couldn't set current user: %w", err)
+	}
+
+	fmt.Println("User switched successfully!")
+	return nil
+}
+
+func handlerUsers(s *state, cmd command) error {
+	users, err := s.db.GetUsers(context.Background())
+	if err != nil {
+		return err
+	}
+
+	for _, user := range users {
+		if s.cfg.CurrentUserName == user.Name {
+			fmt.Printf("* %s (current)\n", user.Name)
+		} else {
+			fmt.Printf("* %s\n", user.Name)
+		}
+	}
+
+	return nil
+}

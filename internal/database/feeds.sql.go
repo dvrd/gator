@@ -14,14 +14,7 @@ import (
 
 const createFeed = `-- name: CreateFeed :one
 INSERT INTO feeds (id, created_at, updated_at, name, url, user_id)
-VALUES (
-    $1,
-    $2,
-    $3,
-    $4,
-    $5,
-    $6
-)
+VALUES ($1, $2, $3, $4, $5, $6)
 RETURNING id, created_at, updated_at, name, url, user_id
 `
 
@@ -55,14 +48,13 @@ func (q *Queries) CreateFeed(ctx context.Context, arg CreateFeedParams) (Feed, e
 	return i, err
 }
 
-const getFeed = `-- name: GetFeed :one
-SELECT id, created_at, updated_at, name, url, user_id
-FROM feeds
+const getFeedByURL = `-- name: GetFeedByURL :one
+SELECT id, created_at, updated_at, name, url, user_id FROM feeds
 WHERE url = $1
 `
 
-func (q *Queries) GetFeed(ctx context.Context, url string) (Feed, error) {
-	row := q.db.QueryRowContext(ctx, getFeed, url)
+func (q *Queries) GetFeedByURL(ctx context.Context, url string) (Feed, error) {
+	row := q.db.QueryRowContext(ctx, getFeedByURL, url)
 	var i Feed
 	err := row.Scan(
 		&i.ID,
@@ -76,30 +68,26 @@ func (q *Queries) GetFeed(ctx context.Context, url string) (Feed, error) {
 }
 
 const getFeeds = `-- name: GetFeeds :many
-SELECT
-    feeds.name,
-    feeds.url,
-    users.name as owner
-FROM feeds
-INNER JOIN users ON feeds.user_id = users.id
+SELECT id, created_at, updated_at, name, url, user_id FROM feeds
 `
 
-type GetFeedsRow struct {
-	Name  string
-	Url   string
-	Owner string
-}
-
-func (q *Queries) GetFeeds(ctx context.Context) ([]GetFeedsRow, error) {
+func (q *Queries) GetFeeds(ctx context.Context) ([]Feed, error) {
 	rows, err := q.db.QueryContext(ctx, getFeeds)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []GetFeedsRow
+	var items []Feed
 	for rows.Next() {
-		var i GetFeedsRow
-		if err := rows.Scan(&i.Name, &i.Url, &i.Owner); err != nil {
+		var i Feed
+		if err := rows.Scan(
+			&i.ID,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.Name,
+			&i.Url,
+			&i.UserID,
+		); err != nil {
 			return nil, err
 		}
 		items = append(items, i)
